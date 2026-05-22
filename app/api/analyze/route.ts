@@ -1,150 +1,131 @@
 import OpenAI from "openai";
 
 const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-export async function POST(req: Request) {
-    try {
-        const { image, colorData } =
-            await req.json();
+/**
+ * スコア計算（AI依存を排除）
+ */
+function calculateScore(colorData: any) {
+  const green = colorData?.green || 0;
+  const yellow = colorData?.yellow || 0;
+  const black = colorData?.black || 0;
 
-        const response =
-            await openai.chat.completions.create({
-                model: "gpt-4.1-mini",
-                messages: [
-                    {
-                        role: "user",
-                        content: [
-                            {
-                                type: "text",
-                                text: `
-このバナナの熟し具合を判定してください。
+  // 重み（ここが熟度ロジックの核）
+  const score =
+    green * 0.3 +
+    yellow * 1.0 +
+    black * 0.9;
 
-JSON形式のみで返してください。
-
-形式：
-
-{
-  "status": "食べ頃",
-  "score": 82,
-  "comment": "今が一番甘いタイミングです。",
-  "bestUse": [
-    "そのまま食べる",
-    "スムージー"
-  ],
-  "daysLeft": "あと2日"
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-色解析結果：
+/**
+ * 状態判定（ルールベース）
+ */
+function getStatus(score: number, black: number) {
+  if (black >= 40) return "熟しすぎ";
+  if (score < 40) return "未熟";
+  if (score < 75) return "食べ頃";
+  return "ベストピーク";
+}
 
-- 黄色率：${colorData?.yellow || 0}%
-- 緑率：${colorData?.green || 0}%
-- 黒率：${colorData?.black || 0}%
+/**
+ * 保存目安
+ */
+function getDaysLeft(score: number) {
+  if (score < 30) return "あと5〜7日";
+  if (score < 60) return "あと2〜4日";
+  if (score < 85) return "あと1〜2日";
+  return "今日〜明日";
+}
 
-この数値も参考にして、
-熟し具合を判定してください。
+export async function POST(req: Request) {
+  try {
+    const { image, colorData } = await req.json();
 
-判断基準：
+    // ① スコアは完全にロジックで決定
+    const score = calculateScore(colorData);
+    const status = getStatus(score, colorData?.black || 0);
+    const daysLeft = getDaysLeft(score);
 
-- 緑が多い → 未熟
-- 黄色が多い → 食べ頃
-- 黒が多い → 熟しすぎ
+    // ② GPTは「コメント生成のみ」
+    const response = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "user",
+          content: `
+あなたはバナナ熟度の説明アシスタントです。
 
-ルール：
+以下のJSONだけを返してください：
 
-- score は0〜100
-- comment は自然な日本語
-- bestUse は配列
-- daysLeft は保存目安
+{
+  "comment": "自然な日本語で1〜2文",
+  "bestUse": ["用途1", "用途2", "用途3"]
+}
 
-bestUse 候補例：
+条件：
+- スコアや状態は絶対に出力しない
+- 専門的すぎない自然な日本語
+- ポジティブな表現
+- 料理・用途提案中心
 
-- そのまま食べる
-- スムージー
-- バナナジュース
-- バナナケーキ
-- パンケーキ
-- バナナトースト
-- ヨーグルトトッピング
-- 冷凍バナナ
-- アイス風
-- 離乳食
-- プロテインスムージー
-- チョコバナナ
-- 焼きバナナ
-- ジャム
+状態: ${status}
+熟度スコア: ${score}%
 `,
-                            },
-                            {
-                                type: "image_url",
-                                image_url: {
-                                    url: image,
-                                },
-                            },
-                        ],
-                    },
-                ],
-            });
+        },
+      ],
+    });
 
-        const content =
-            response.choices[0].message.content ||
-            "";
+    const content = response.choices[0].message.content || "{}";
+    const parsed = JSON.parse(content);
 
-        const cleaned = content
-            .replace(/```json/g, "")
-            .replace(/```/g, "")
-            .trim();
+    // ③ 保存アドバイス（固定ロジック）
+    let storageAdvice = [];
 
-        const parsed = JSON.parse(cleaned);
-
-        let storageAdvice = [];
-
-        // 保存方法ロジック
-        if (parsed.score < 40) {
-            storageAdvice = [
-                "常温で追熟させましょう",
-                "まだ少し青めなので冷蔵保存はおすすめしません",
-                "風通しの良い場所に置くと追熟しやすいです",
-                "直射日光は避けましょう",
-                "吊るして保存すると傷みにくくなります",
-            ];
-        } else if (parsed.score < 90) {
-            storageAdvice = [
-                "冷蔵すると甘さを維持しやすいです",
-                "2〜3日以内に食べるのがおすすめです",
-                "皮は黒くなっても中身は問題ありません",
-                "茎をラップで包むと長持ちしやすいです",
-                "野菜室保存がおすすめです",
-            ];
-        } else {
-            storageAdvice = [
-                "冷凍保存がおすすめです",
-                "スムージーやお菓子作り向きです",
-                "皮を剥いてから冷凍すると使いやすいです",
-                "カットしてジップ袋で保存がおすすめです",
-                "そのまま冷凍すると解凍時に剥きにくくなります",
-                "冷凍で約1ヶ月ほど保存できます",
-            ];
-        }
-
-        // JSONへ追加
-        parsed.storageAdvice =
-            storageAdvice;
-
-        return Response.json({
-            result: JSON.stringify(parsed),
-        });
-    } catch (error) {
-        console.error(error);
-
-        return Response.json(
-            {
-                error: "判定失敗",
-            },
-            {
-                status: 500,
-            }
-        );
+    if (score < 40) {
+      storageAdvice = [
+        "常温で追熟させましょう",
+        "風通しの良い場所に置くと熟しやすいです",
+        "直射日光は避けましょう",
+        "吊るして保存すると傷みにくいです",
+      ];
+    } else if (score < 90) {
+      storageAdvice = [
+        "冷蔵すると甘さを維持しやすいです",
+        "2〜3日以内に食べるのがおすすめです",
+        "茎をラップで包むと長持ちします",
+        "野菜室保存がおすすめです",
+      ];
+    } else {
+      storageAdvice = [
+        "冷凍保存がおすすめです",
+        "スムージーやお菓子作り向きです",
+        "カットして保存すると使いやすいです",
+        "約1ヶ月保存可能です",
+      ];
     }
+
+    // ④ 最終レスポンス統合
+    const result = {
+      status,
+      score,
+      daysLeft,
+      storageAdvice,
+      comment: parsed.comment,
+      bestUse: parsed.bestUse || [],
+    };
+
+    return Response.json({ result });
+  } catch (error) {
+    console.error(error);
+
+    return Response.json(
+      { error: "判定失敗" },
+      { status: 500 }
+    );
+  }
 }

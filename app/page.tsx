@@ -358,7 +358,7 @@ export default function Home() {
         <div className="bg-white rounded-3xl shadow-xl p-6 md:p-10">
           {/* タイトル */}
           <div className="text-center">
-            <h1 className="text-4xl md:text-5xl font-bold">
+            <h1 className="text-3xl md:text-5xl font-bold">
               食べ頃チェッカー
             </h1>
 
