@@ -597,7 +597,7 @@ export default function Home() {
                   </div>
                 )}
 
-                {testResults.length > 0 && (
+                {/* {testResults.length > 0 && (
                   <div className="mt-10 bg-white p-6 rounded-2xl shadow">
                     <h2 className="text-xl font-bold mb-4">
                       🧪 精度テスト結果
@@ -629,7 +629,7 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
-                )}
+                )} */}
 
 
               </div>
@@ -713,7 +713,7 @@ export default function Home() {
                   <div className="mt-6">
                     <div className="flex justify-between mb-2">
                       <span className="font-medium">
-                        熟度
+                        推定糖度
                       </span>
 
                       <span className="font-bold">
