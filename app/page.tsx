@@ -713,7 +713,7 @@ export default function Home() {
                   <div className="mt-6">
                     <div className="flex justify-between mb-2">
                       <span className="font-medium">
-                        推定糖度
+                        推定糖度スコア(%)
                       </span>
 
                       <span className="font-bold">
