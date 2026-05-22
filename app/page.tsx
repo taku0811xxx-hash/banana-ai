@@ -4,6 +4,7 @@ import { useState } from "react";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import "@tensorflow/tfjs";
 import BananaMap from "./components/BananaMap";
+import { testCases } from "@/lib/testCases";
 
 export default function Home() {
   const [image, setImage] = useState("");
@@ -13,6 +14,10 @@ export default function Home() {
   const [croppedImage, setCroppedImage] = useState("");
   const [loadingText, setLoadingText] = useState("");
   const [spots, setSpots] = useState<any[]>([]);
+  const [testResults, setTestResults] = useState<any[]>([]);
+  const [testLoading, setTestLoading] = useState(false);
+  const [accuracySummary, setAccuracySummary] = useState<any>(null);
+  const [accuracy, setAccuracy] = useState<any>(null);
 
   const [ingredients, setIngredients] =
     useState("");
@@ -352,6 +357,94 @@ export default function Home() {
     setRecipeLoading(false);
   };
 
+  // const runAccuracyTest = async () => {
+  //   setTestLoading(true);
+
+  //   const summary = {
+  //     green: { correct: 0, total: 0 },
+  //     yellow: { correct: 0, total: 0 },
+  //     black: { correct: 0, total: 0 },
+  //   };
+
+  //   const results: any[] = [];
+
+  //   for (const test of testCases) {
+  //     const res = await fetch("/api/analyze", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         image: test.image,
+  //         colorData: null,
+  //       }),
+  //     });
+
+  //     const data = await res.json();
+  //     const result =
+  //       typeof data.result === "string"
+  //         ? JSON.parse(data.result)
+  //         : data.result;
+
+  //     const expected =
+  //       test.expectedStatus === "未熟"
+  //         ? "未熟"
+  //         : test.expectedStatus === "食べ頃"
+  //           ? "食べ頃"
+  //           : "熟しすぎ";
+
+  //     const actual = result.status;
+
+  //     results.push({
+  //       name: test.name,
+  //       expected,
+  //       actual,
+  //       score: result.score,
+  //       correct: actual === expected,
+  //     });
+
+  //     // -------------------------
+  //     // 集計ロジック
+  //     // -------------------------
+  //     const category =
+  //       expected === "未熟"
+  //         ? "green"
+  //         : expected === "食べ頃"
+  //           ? "yellow"
+  //           : "black";
+
+  //     summary[category].total++;
+
+  //     if (actual === expected) {
+  //       summary[category].correct++;
+  //     }
+  //   }
+
+  //   // -------------------------
+  //   // 精度計算
+  //   // -------------------------
+  //   const accuracyCalc = {
+  //     green:
+  //       summary.green.total === 0
+  //         ? 0
+  //         : summary.green.correct / summary.green.total,
+
+  //     yellow:
+  //       summary.yellow.total === 0
+  //         ? 0
+  //         : summary.yellow.correct / summary.yellow.total,
+
+  //     black:
+  //       summary.black.total === 0
+  //         ? 0
+  //         : summary.black.correct / summary.black.total,
+  //   };
+
+  //   setTestResults(results);
+  //   setAccuracySummary(summary);
+  //   setAccuracy(accuracyCalc);
+
+  //   setTestLoading(false);
+  // };
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-yellow-50 p-6">
       <div className="w-full max-w-7xl mx-auto">
@@ -366,6 +459,13 @@ export default function Home() {
               バナナの食べ頃を判定します
             </p>
           </div>
+
+          {/* <button
+            onClick={runAccuracyTest}
+            className="mt-4 bg-blue-500 text-white px-6 py-3 rounded-xl font-bold"
+          >
+            精度テスト実行
+          </button> */}
 
           {/* 画像選択 */}
           <div className="mt-8 max-w-md mx-auto">
@@ -486,6 +586,51 @@ export default function Home() {
                     </div>
                   </div>
                 )}
+
+                {accuracy && (
+                  <div className="mb-6 bg-blue-50 p-4 rounded-xl">
+                    <h3 className="font-bold mb-2">📊 精度サマリー</h3>
+
+                    <p>未熟（green）: {Math.round(accuracy.green * 100)}%</p>
+                    <p>食べ頃（yellow）: {Math.round(accuracy.yellow * 100)}%</p>
+                    <p>熟しすぎ（black）: {Math.round(accuracy.black * 100)}%</p>
+                  </div>
+                )}
+
+                {testResults.length > 0 && (
+                  <div className="mt-10 bg-white p-6 rounded-2xl shadow">
+                    <h2 className="text-xl font-bold mb-4">
+                      🧪 精度テスト結果
+                    </h2>
+
+                    {testResults.map((r, i) => (
+                      <div
+                        key={i}
+                        className="border-b py-3 flex justify-between"
+                      >
+                        <div>
+                          <p className="font-bold">{r.name}</p>
+                          <p className="text-sm text-gray-500">
+                            期待: {r.expected} / 実際: {r.actual}
+                          </p>
+                        </div>
+
+                        <div>
+                          {r.correct ? (
+                            <span className="text-green-600 font-bold">
+                              ✔ 正解
+                            </span>
+                          ) : (
+                            <span className="text-red-500 font-bold">
+                              ✖ ミス
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
 
               </div>
 
