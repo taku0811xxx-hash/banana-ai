@@ -21,7 +21,7 @@ export default function BananaMap() {
         <div className="w-full">
             <ComposableMap>
                 <Geographies geography="https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json">
-                    {({ geographies }) =>
+                    {({ geographies }: { geographies: any[] }) =>
                         geographies.map((geo) => (
                             <Geography
                                 key={geo.rsmKey}
